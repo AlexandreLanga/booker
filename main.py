@@ -12,6 +12,7 @@ from infrastructure.repositories.sqlite_annotation_repository import SqliteAnnot
 from infrastructure.repositories.sqlite_book_repository import SqliteBookRepository
 from infrastructure.repositories.sqlite_progress_repository import SqliteProgressRepository
 from presentation.app import BookerApp
+from presentation.theme import BACKGROUND, apply_theme
 
 DB_PATH = str(Path.home() / ".booker" / "booker.db")
 
@@ -29,7 +30,10 @@ def main() -> None:
 
     root = tk.Tk()
     root.title("Booker")
-    root.geometry("1100x700")
+    root.geometry("1200x760")
+    root.minsize(900, 600)
+    root.configure(background=BACKGROUND)
+    apply_theme(root)
 
     BookerApp(root, library_service, reading_service, annotation_service)
 
