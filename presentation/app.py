@@ -95,8 +95,8 @@ class BookerApp:
         )
         self._reader_screen.show_annotations(self._annotation_service.list_by_book(book_id))
 
-    def _render_page(self, page_number: int) -> bytes:
-        return self._current_document.render_page(page_number)
+    def _render_page(self, page_number: int, zoom: float) -> bytes:
+        return self._current_document.render_page(page_number, zoom)
 
     def _handle_page_changed(self, page_number: int) -> None:
         if self._current_book_id is None:

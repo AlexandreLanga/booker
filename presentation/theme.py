@@ -144,8 +144,42 @@ def apply_theme(root: tk.Tk) -> None:
     )
     style.map("TEntry", bordercolor=[("focus", ACCENT)])
 
-    style.configure("Vertical.TScrollbar", background=BORDER, troughcolor=BACKGROUND, borderwidth=0, arrowsize=12)
-    style.configure("Horizontal.TScrollbar", background=BORDER, troughcolor=BACKGROUND, borderwidth=0, arrowsize=12)
+    scrollbar_thumb = "#c3c6d6"
+    scrollbar_thumb_active = "#9ca0b8"
+    style.configure(
+        "Vertical.TScrollbar",
+        background=scrollbar_thumb,
+        troughcolor=SURFACE_ALT,
+        bordercolor=SURFACE_ALT,
+        lightcolor=scrollbar_thumb,
+        darkcolor=scrollbar_thumb,
+        borderwidth=0,
+        arrowsize=13,
+        relief="flat",
+    )
+    style.configure(
+        "Horizontal.TScrollbar",
+        background=scrollbar_thumb,
+        troughcolor=SURFACE_ALT,
+        bordercolor=SURFACE_ALT,
+        lightcolor=scrollbar_thumb,
+        darkcolor=scrollbar_thumb,
+        borderwidth=0,
+        arrowsize=13,
+        relief="flat",
+    )
+    style.map(
+        "Vertical.TScrollbar",
+        background=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+        lightcolor=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+        darkcolor=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+    )
+    style.map(
+        "Horizontal.TScrollbar",
+        background=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+        lightcolor=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+        darkcolor=[("active", scrollbar_thumb_active), ("pressed", scrollbar_thumb_active)],
+    )
 
     style.configure("TSeparator", background=BORDER)
 
