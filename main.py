@@ -35,7 +35,10 @@ def main() -> None:
     root = tk.Tk()
     root.title("Booker")
     icon_path = Path(__file__).resolve().parent / "assets" / "booker_logo.ico"
-    root.iconbitmap(str(icon_path))
+    try:
+        root.iconbitmap(str(icon_path))
+    except tk.TclError:
+        pass
     root.geometry("1200x760")
     root.minsize(900, 600)
     root.configure(background=BACKGROUND)
