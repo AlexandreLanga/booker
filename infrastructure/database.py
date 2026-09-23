@@ -27,6 +27,17 @@ CREATE TABLE IF NOT EXISTS reading_progress (
     last_read_at TEXT NOT NULL,
     FOREIGN KEY (book_id) REFERENCES books (id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS page_markers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id INTEGER NOT NULL,
+    page_number INTEGER NOT NULL,
+    points TEXT NOT NULL,
+    color TEXT NOT NULL,
+    alpha REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (book_id) REFERENCES books (id) ON DELETE CASCADE
+);
 """
 
 

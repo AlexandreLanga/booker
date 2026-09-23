@@ -5,10 +5,11 @@ from tkinter import ttk
 
 from application.services.annotation_service import AnnotationService
 from application.services.library_service import LibraryService
+from application.services.marker_service import MarkerService
 from application.services.reading_service import ReadingService
 from domain.exceptions import DomainError
 from presentation.screens.library_screen import LibraryScreen
-from presentation.screens.reader_screen import ReaderScreen
+from presentation.screens.reader_screen import MarkerStroke, ReaderScreen
 
 
 class BookerApp:
@@ -20,10 +21,12 @@ class BookerApp:
         library_service: LibraryService,
         reading_service: ReadingService,
         annotation_service: AnnotationService,
+        marker_service: MarkerService | None = None,
     ):
         self._library_service = library_service
         self._reading_service = reading_service
         self._annotation_service = annotation_service
+        self._marker_service = marker_service
 
         self._current_document = None
         self._current_book_id: int | None = None
@@ -45,6 +48,8 @@ class BookerApp:
             on_add_annotation=self._handle_add_annotation,
             on_delete_annotation=self._handle_delete_annotation,
         )
+        if self._marker_service is not None:
+            self._reader_screen._on_save_marker = self._handle_save_markers
 
         self._show_library()
 
@@ -87,11 +92,19 @@ class BookerApp:
         self._current_book_id = book_id
         self._current_document = document
         self._show_reader()
+        markers = self._marker_service.list_by_book(book_id) if self._marker_service is not None else {}
+        page_markers: dict[int, list[MarkerStroke]] = {}
+        for page_number, markers_for_page in markers.items():
+            page_markers[page_number] = [
+                MarkerStroke(points=marker.points, color=marker.color, alpha=marker.alpha)
+                for marker in markers_for_page
+            ]
         self._reader_screen.load_book(
             title=book.title,
             total_pages=book.total_pages,
             current_page=current_page,
             render_page_callback=self._render_page,
+            persisted_markers=page_markers,
         )
         self._reader_screen.show_annotations(self._annotation_service.list_by_book(book_id))
 
@@ -123,3 +136,16 @@ class BookerApp:
             return
         self._annotation_service.delete_annotation(annotation_id)
         self._reader_screen.show_annotations(self._annotation_service.list_by_book(self._current_book_id))
+
+    def _handle_save_markers(self, page_number: int, strokes: list[MarkerStroke]) -> None:
+        if self._current_book_id is None or self._marker_service is None:
+            return
+        self._marker_service.clear_page(self._current_book_id, page_number)
+        for stroke in strokes:
+            self._marker_service.save_stroke(
+                self._current_book_id,
+                page_number,
+                stroke.points,
+                stroke.color,
+                stroke.alpha,
+            )

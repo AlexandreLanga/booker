@@ -32,3 +32,14 @@ class ReadingProgress:
         if total_pages <= 0:
             return 0.0
         return round((self.current_page + 1) / total_pages * 100, 1)
+
+
+@dataclass
+class PageMarker:
+    id: int | None
+    book_id: int
+    page_number: int
+    points: list[tuple[float, float]]
+    color: str
+    alpha: float
+    created_at: datetime = field(default_factory=datetime.now)

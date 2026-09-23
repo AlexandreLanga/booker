@@ -1,12 +1,39 @@
 from __future__ import annotations
 
 import tkinter as tk
+from dataclasses import dataclass, field
 from tkinter import messagebox, ttk
 from typing import Callable
 
 from application.dto import AnnotationView
 from domain.value_objects import SearchResult
 from presentation.theme import CANVAS_BACKGROUND, style_listbox
+
+
+@dataclass
+class MarkerStroke:
+    """Represents a freehand marker stroke drawn on a page."""
+
+    points: list[tuple[float, float]] = field(default_factory=list)
+    color: str = "#ffeb3b"
+    alpha: float = 0.35
+
+    def add_point(self, x: float, y: float) -> None:
+        self.points.append((float(x), float(y)))
+
+    def as_canvas_points(self) -> tuple[float, ...]:
+        flattened: list[float] = []
+        for x, y in self.points:
+            flattened.extend((x, y))
+        return tuple(flattened)
+
+    def canvas_color(self) -> str:
+        if self.alpha >= 1.0:
+            return self.color
+        red = int(self.color[1:3], 16)
+        green = int(self.color[3:5], 16)
+        blue = int(self.color[5:7], 16)
+        return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 class ReaderScreen(ttk.Frame):
@@ -33,6 +60,7 @@ class ReaderScreen(ttk.Frame):
         self._on_search = on_search
         self._on_add_annotation = on_add_annotation
         self._on_delete_annotation = on_delete_annotation
+        self._on_save_marker = None
 
         self._total_pages = 0
         self._current_page = 0
@@ -45,6 +73,12 @@ class ReaderScreen(ttk.Frame):
         self._image_offset = (0, 0)
         self._image_size = (0, 0)
         self._scroll_region_size = (0, 0)
+        self._page_markers: dict[int, list[MarkerStroke]] = {}
+        self._is_marker_mode = False
+        self._active_marker_stroke: MarkerStroke | None = None
+        self._marker_button = None
+        self._marker_color = "#ffeb3b"
+        self._marker_alpha = 0.35
 
         self._create_widgets()
         self._bind_events()
@@ -82,8 +116,14 @@ class ReaderScreen(ttk.Frame):
         self._zoom_in_button = ttk.Button(zoom_box, text="＋", width=3, command=self._handle_zoom_in)
         self._zoom_in_button.pack(side="left")
 
+        marker_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
+        marker_box.pack(side="right")
+        self._marker_button = ttk.Button(marker_box, text="✏️  Marcar", command=self._toggle_marker_mode)
+        self._marker_button.pack(side="left")
+        ttk.Button(marker_box, text="🧽  Limpar", command=self._clear_markers).pack(side="left", padx=(8, 0))
+
         search_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
-        search_box.pack(side="right")
+        search_box.pack(side="right", padx=(0, 16))
         self._search_entry = ttk.Entry(search_box, width=32)
         self._search_entry.pack(side="left")
         self._search_entry.bind("<Return>", lambda _event: self._handle_search())
@@ -161,6 +201,9 @@ class ReaderScreen(ttk.Frame):
         self._canvas.bind("<Shift-Button-5>", self._on_shift_mousewheel)
         self._canvas.bind("<Control-Button-4>", self._on_ctrl_mousewheel)
         self._canvas.bind("<Control-Button-5>", self._on_ctrl_mousewheel)
+        self._canvas.bind("<ButtonPress-1>", self._on_canvas_press)
+        self._canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self._canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
         self._canvas.bind("<Configure>", lambda _event: self._reposition_image())
 
     def load_book(
@@ -169,6 +212,7 @@ class ReaderScreen(ttk.Frame):
         total_pages: int,
         current_page: int,
         render_page_callback: Callable[[int, float], bytes],
+        persisted_markers: dict[int, list[MarkerStroke]] | None = None,
     ) -> None:
         self._total_pages = total_pages
         self._render_page_callback = render_page_callback
@@ -176,6 +220,10 @@ class ReaderScreen(ttk.Frame):
         self._search_results = []
         self._search_results_list.delete(0, "end")
         self._zoom_factor = self._INITIAL_ZOOM_FACTOR
+        self._page_markers = persisted_markers.copy() if persisted_markers else {}
+        self._active_marker_stroke = None
+        self._is_marker_mode = False
+        self._set_marker_mode(False)
         self._update_zoom_controls()
         self.show_page(current_page)
 
@@ -195,7 +243,35 @@ class ReaderScreen(ttk.Frame):
         self._page_image = tk.PhotoImage(data=raw_ppm)
         self._canvas.delete("all")
         self._image_item = self._canvas.create_image(0, 0, anchor="nw", image=self._page_image)
+        self._redraw_marker_strokes()
         self._reposition_image()
+
+    def _redraw_marker_strokes(self) -> None:
+        self._canvas.delete("marker")
+        for stroke in self._page_markers.get(self._current_page, []):
+            if len(stroke.points) < 2:
+                continue
+            self._canvas.create_line(
+                *stroke.as_canvas_points(),
+                fill=stroke.canvas_color(),
+                width=8,
+                capstyle=tk.ROUND,
+                smooth=True,
+                joinstyle=tk.ROUND,
+                tag="marker",
+                stipple="gray50",
+            )
+        if self._active_marker_stroke is not None and len(self._active_marker_stroke.points) >= 2:
+            self._canvas.create_line(
+                *self._active_marker_stroke.as_canvas_points(),
+                fill=self._active_marker_stroke.canvas_color(),
+                width=8,
+                capstyle=tk.ROUND,
+                smooth=True,
+                joinstyle=tk.ROUND,
+                tag="marker",
+                stipple="gray50",
+            )
 
     def _reposition_image(self) -> None:
         if self._page_image is None or self._image_item is None:
@@ -244,6 +320,45 @@ class ReaderScreen(ttk.Frame):
             return
         for result in results:
             self._search_results_list.insert("end", f"  p.{result.page_number + 1} — {result.snippet}")
+
+    def _toggle_marker_mode(self) -> None:
+        self._set_marker_mode(not self._is_marker_mode)
+
+    def _set_marker_mode(self, enabled: bool) -> None:
+        self._is_marker_mode = enabled
+        if self._marker_button is not None:
+            self._marker_button.config(text="✏️  Marcar (ativo)" if enabled else "✏️  Marcar")
+        self._canvas.config(cursor="pencil" if enabled else "")
+
+    def _clear_markers(self) -> None:
+        self._page_markers.pop(self._current_page, None)
+        self._active_marker_stroke = None
+        if self._on_save_marker is not None:
+            self._on_save_marker(self._current_page, [])
+        self._redraw_marker_strokes()
+
+    def _on_canvas_press(self, event) -> None:
+        if not self._is_marker_mode:
+            return
+        self._active_marker_stroke = MarkerStroke(color=self._marker_color, alpha=self._marker_alpha)
+        self._active_marker_stroke.add_point(self._canvas.canvasx(event.x), self._canvas.canvasy(event.y))
+        self._redraw_marker_strokes()
+
+    def _on_canvas_drag(self, event) -> None:
+        if self._active_marker_stroke is None:
+            return
+        self._active_marker_stroke.add_point(self._canvas.canvasx(event.x), self._canvas.canvasy(event.y))
+        self._redraw_marker_strokes()
+
+    def _on_canvas_release(self, _event) -> None:
+        if self._active_marker_stroke is None:
+            return
+        if len(self._active_marker_stroke.points) >= 2:
+            self._page_markers.setdefault(self._current_page, []).append(self._active_marker_stroke)
+            if self._on_save_marker is not None:
+                self._on_save_marker(self._current_page, self._page_markers[self._current_page])
+        self._active_marker_stroke = None
+        self._redraw_marker_strokes()
 
     def show_error(self, message: str) -> None:
         messagebox.showerror("Erro", message)
