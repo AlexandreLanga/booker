@@ -108,9 +108,12 @@ class ReaderScreen(ttk.Frame):
             toolbar_inner, style="Progress.Horizontal.TProgressbar", maximum=1, value=0, length=160
         )
         self._progress.pack(side="left", padx=(20, 0))
+        self._progress_label = ttk.Label(toolbar_inner, text="0%", style="Toolbar.TLabel", width=6, anchor="w")
+        self._progress_label.pack(side="left", padx=(8, 0))
 
+        ttk.Separator(toolbar_inner, orient="vertical").pack(side="left", fill="y", padx=(28, 12), pady=2)
         zoom_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
-        zoom_box.pack(side="left", padx=(20, 0))
+        zoom_box.pack(side="left")
         self._zoom_out_button = ttk.Button(zoom_box, text="－", width=3, command=self._handle_zoom_out)
         self._zoom_out_button.pack(side="left")
         self._zoom_label = ttk.Label(
@@ -121,15 +124,20 @@ class ReaderScreen(ttk.Frame):
         self._zoom_in_button = ttk.Button(zoom_box, text="＋", width=3, command=self._handle_zoom_in)
         self._zoom_in_button.pack(side="left")
 
-        marker_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
-        marker_box.pack(side="right")
-        self._marker_button = ttk.Button(marker_box, text="✏️  Marcar", command=self._toggle_marker_mode)
-        self._marker_button.pack(side="left")
-        ttk.Button(marker_box, text="🧽  Limpar", command=self._clear_markers).pack(side="left", padx=(8, 0))
+        tools_menu = tk.Menu(self, tearoff=False)
+        self._marker_button = tools_menu
+        tools_menu.add_command(label="✎  Marcar", command=self._toggle_marker_mode)
+        tools_menu.add_command(label="⌫  Limpar", command=self._clear_markers)
+        actions_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
+        actions_box.pack(side="right", padx=(16, 0))
 
-        search_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
-        search_box.pack(side="right", padx=(0, 16))
-        self._search_entry = ttk.Entry(search_box, width=32)
+        ttk.Menubutton(actions_box, text="🛠  Ferramentas", menu=tools_menu, width=14).pack(
+            side="right", padx=(8, 0)
+        )
+
+        search_box = ttk.Frame(actions_box, style="Toolbar.TFrame")
+        search_box.pack(side="left")
+        self._search_entry = ttk.Entry(search_box, width=24)
         self._search_entry.pack(side="left")
         self._search_entry.bind("<Return>", lambda _event: self._handle_search())
         ttk.Button(search_box, text="🔍  Pesquisar", command=self._handle_search).pack(side="left", padx=(6, 0))
@@ -244,6 +252,8 @@ class ReaderScreen(ttk.Frame):
         self._render_current_page()
         self._page_label.config(text=f"Página {self._current_page + 1} / {self._total_pages}")
         self._progress.configure(value=self._current_page + 1)
+        completion = ((self._current_page + 1) / self._total_pages * 100) if self._total_pages else 0
+        self._progress_label.config(text=f"{completion:.1f}%")
 
     def _render_current_page(self) -> None:
         if self._render_page_callback is None:
@@ -337,7 +347,7 @@ class ReaderScreen(ttk.Frame):
     def _set_marker_mode(self, enabled: bool) -> None:
         self._is_marker_mode = enabled
         if self._marker_button is not None:
-            self._marker_button.config(text="✏️  Marcar (ativo)" if enabled else "✏️  Marcar")
+            self._marker_button.entryconfigure(0, label="✎  Marcar (ativo)" if enabled else "✎  Marcar")
         self._canvas.config(cursor="pencil" if enabled else "")
 
     def _clear_markers(self) -> None:
