@@ -132,6 +132,7 @@ def apply_theme(root: tk.Tk) -> None:
         "TNotebook.Tab",
         background=[("selected", SURFACE)],
         foreground=[("selected", ACCENT)],
+        padding=[("selected", (16, 9)), ("!selected", (16, 9))],
     )
 
     style.configure(
