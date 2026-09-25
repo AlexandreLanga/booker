@@ -16,8 +16,8 @@ infrastructure/ → SQLite (persistência) e PyMuPDF (renderização/busca em PD
 
 ## Funcionalidades
 
-- Importar arquivos PDF para uma biblioteca pessoal (armazenada em SQLite).
-- Ler o PDF página a página, com navegação e rolagem.
+- Importar arquivos PDF, EPUB e TXT para uma biblioteca pessoal (armazenada em SQLite).
+- Ler livros página a página, com navegação e rolagem.
 - Adicionar, listar e remover anotações por página.
 - Pesquisar texto dentro do PDF e navegar até a página do resultado.
 - Progresso de leitura salvo automaticamente por livro.

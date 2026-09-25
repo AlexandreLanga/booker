@@ -4,6 +4,8 @@ import logging
 import shutil
 import threading
 import unicodedata
+import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Callable
 
@@ -19,10 +21,54 @@ class PdfDocument:
 
     def __init__(self, file_path: str):
         self._file_path = file_path
-        self._doc = pymupdf.open(file_path)
+        self._doc = self._open_document(file_path)
         self._ocr_available: bool | None = None
         self._ocr_text_cache: dict[int, str | None] = {}
         self._lock = threading.RLock()
+
+    @staticmethod
+    def _open_document(file_path: str):
+        suffix = Path(file_path).suffix.casefold()
+        if suffix == ".pdf":
+            return pymupdf.open(file_path)
+        if suffix == ".txt":
+            content = Path(file_path).read_text(encoding="utf-8-sig", errors="replace")
+        elif suffix == ".epub":
+            content = PdfDocument._read_epub_text(file_path)
+        else:
+            raise ValueError(f"Formato não suportado: {suffix or 'desconhecido'}")
+        return PdfDocument._document_from_text(content)
+
+    @staticmethod
+    def _document_from_text(content: str):
+        document = pymupdf.open()
+        chunks = [content[index : index + 3000] for index in range(0, len(content), 3000)] or [""]
+        for chunk in chunks:
+            page = document.new_page(width=595, height=842)
+            page.insert_textbox(pymupdf.Rect(55, 55, 540, 790), chunk, fontsize=11, lineheight=1.3)
+        return document
+
+    @staticmethod
+    def _read_epub_text(file_path: str) -> str:
+        class TextExtractor(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.parts: list[str] = []
+
+            def handle_data(self, data: str) -> None:
+                text = " ".join(data.split())
+                if text:
+                    self.parts.append(text)
+
+        extractor = TextExtractor()
+        with zipfile.ZipFile(file_path) as archive:
+            names = sorted(
+                name for name in archive.namelist() if Path(name).suffix.casefold() in {".html", ".xhtml", ".htm"}
+            )
+            for name in names:
+                extractor.feed(archive.read(name).decode("utf-8", errors="replace"))
+                extractor.parts.append("\n")
+        return "\n".join(extractor.parts)
 
     @property
     def page_count(self) -> int:

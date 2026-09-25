@@ -40,6 +40,8 @@ class BookerApp:
             on_import=self._handle_import,
             on_open_book=self._handle_open_book,
             on_delete_book=self._handle_delete_book,
+            on_edit_book=self._handle_edit_book,
+            on_filter=self._handle_filter_books,
         )
         self._reader_screen = ReaderScreen(
             self._container,
@@ -69,6 +71,16 @@ class BookerApp:
     def _refresh_library(self) -> None:
         self._library_screen.show_books(self._library_service.list_books())
 
+    def _handle_filter_books(self, query: str, status: str, favorite_only: bool, sort_by: str) -> None:
+        self._library_screen.show_books(
+            self._library_service.list_books(
+                query=query,
+                status=status,
+                favorite_only=favorite_only,
+                sort_by=sort_by,
+            )
+        )
+
     def _handle_import(self, file_path: str) -> None:
         try:
             self._library_service.import_book(file_path)
@@ -79,6 +91,13 @@ class BookerApp:
     def _handle_delete_book(self, book_id: int) -> None:
         try:
             self._library_service.remove_book(book_id)
+            self._refresh_library()
+        except DomainError as error:
+            self._library_screen.show_error(str(error))
+
+    def _handle_edit_book(self, book_id: int, metadata: dict) -> None:
+        try:
+            self._library_service.update_metadata(book_id, **metadata)
             self._refresh_library()
         except DomainError as error:
             self._library_screen.show_error(str(error))

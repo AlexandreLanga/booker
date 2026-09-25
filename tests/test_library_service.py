@@ -103,3 +103,45 @@ def test_remove_book_raises_when_not_found():
 
     with pytest.raises(BookNotFoundError):
         service.remove_book(999)
+
+
+def test_list_books_filters_and_sorts_metadata():
+    book_repository = FakeBookRepository()
+    progress_repository = FakeProgressRepository()
+    service = LibraryService(book_repository, progress_repository, make_fake_document)
+    first = service.import_book("first.pdf")
+    second = service.import_book("second.pdf")
+    first.author = "Machado de Assis"
+    first.status = "Lendo"
+    first.favorite = True
+    second.author = "Jose de Alencar"
+    second.status = "Concluído"
+    book_repository._books[first.id] = first
+    book_repository._books[second.id] = second
+    progress_repository.save(ReadingProgress(book_id=first.id, current_page=2))
+    progress_repository.save(ReadingProgress(book_id=second.id, current_page=9))
+
+    results = service.list_books(query="machado", status="Lendo", favorite_only=True)
+    assert [book.id for book in results] == [first.id]
+
+    ordered = service.list_books(sort_by="progress")
+    assert [book.id for book in ordered] == [first.id, second.id]
+
+
+def test_list_books_sorts_by_most_recent_added_at():
+    from datetime import datetime, timedelta
+
+    book_repository = FakeBookRepository()
+    progress_repository = FakeProgressRepository()
+    service = LibraryService(book_repository, progress_repository, make_fake_document)
+
+    older = service.import_book("older.pdf")
+    newer = service.import_book("newer.pdf")
+    older.added_at = datetime.now() - timedelta(days=10)
+    newer.added_at = datetime.now()
+    book_repository._books[older.id] = older
+    book_repository._books[newer.id] = newer
+
+    ordered = service.list_books(sort_by="added_at")
+
+    assert [book.id for book in ordered] == [newer.id, older.id]

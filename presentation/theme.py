@@ -64,6 +64,23 @@ def apply_theme(root: tk.Tk) -> None:
     )
 
     style.configure(
+        "Back.TButton",
+        font=FONT_BOLD,
+        padding=(10, 7),
+        background=SURFACE_ALT,
+        foreground=ACCENT,
+        borderwidth=1,
+        bordercolor=BORDER,
+        relief="flat",
+        focuscolor=BACKGROUND,
+    )
+    style.map(
+        "Back.TButton",
+        background=[("active", SELECTION)],
+        foreground=[("active", ACCENT_HOVER)],
+    )
+
+    style.configure(
         "Accent.TButton",
         font=FONT_BOLD,
         padding=(16, 9),
@@ -144,6 +161,22 @@ def apply_theme(root: tk.Tk) -> None:
         foreground=TEXT_PRIMARY,
     )
     style.map("TEntry", bordercolor=[("focus", ACCENT)])
+
+    style.configure(
+        "TCombobox",
+        padding=7,
+        fieldbackground=SURFACE,
+        background=SURFACE,
+        foreground=TEXT_PRIMARY,
+        borderwidth=1,
+        bordercolor=BORDER,
+    )
+    style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", SURFACE), ("focus", SURFACE)],
+        background=[("readonly", SURFACE), ("focus", SURFACE)],
+        bordercolor=[("focus", ACCENT), ("!focus", BORDER)],
+    )
 
     scrollbar_thumb = "#c3c6d6"
     scrollbar_thumb_active = "#9ca0b8"

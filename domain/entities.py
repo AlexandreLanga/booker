@@ -11,6 +11,14 @@ class Book:
     file_path: str
     total_pages: int
     added_at: datetime = field(default_factory=datetime.now)
+    author: str = ""
+    publisher: str = ""
+    isbn: str = ""
+    publication_year: int | None = None
+    category: str = ""
+    tags: list[str] = field(default_factory=list)
+    favorite: bool = False
+    status: str = "Não iniciado"
 
 
 @dataclass

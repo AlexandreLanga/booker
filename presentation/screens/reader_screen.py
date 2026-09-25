@@ -95,7 +95,9 @@ class ReaderScreen(ttk.Frame):
         toolbar_inner = ttk.Frame(toolbar, style="Toolbar.TFrame")
         toolbar_inner.pack(fill="x", padx=16, pady=10)
 
-        ttk.Button(toolbar_inner, text="←  Biblioteca", command=self._on_back).pack(side="left")
+        ttk.Button(
+            toolbar_inner, text="←  Biblioteca", style="Back.TButton", command=self._on_back, width=14
+        ).pack(side="left")
 
         nav_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
         nav_box.pack(side="left", padx=(24, 0))
@@ -103,6 +105,9 @@ class ReaderScreen(ttk.Frame):
         self._page_label = ttk.Label(nav_box, text="Página 0 / 0", style="Toolbar.TLabel", width=16, anchor="center")
         self._page_label.pack(side="left", padx=8)
         ttk.Button(nav_box, text="▶", width=3, command=self._go_next).pack(side="left")
+        self._page_entry = ttk.Entry(nav_box, width=6, justify="center")
+        self._page_entry.pack(side="left", padx=(12, 0))
+        self._page_entry.bind("<Return>", lambda _event: self._handle_goto_page())
 
         self._progress = ttk.Progressbar(
             toolbar_inner, style="Progress.Horizontal.TProgressbar", maximum=1, value=0, length=160
@@ -112,7 +117,7 @@ class ReaderScreen(ttk.Frame):
         self._progress_label.pack(side="left", padx=(8, 0))
 
         ttk.Separator(toolbar_inner, orient="vertical").pack(side="left", fill="y", padx=(28, 12), pady=2)
-        zoom_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
+        zoom_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame", padding=(8, 0))
         zoom_box.pack(side="left")
         self._zoom_out_button = ttk.Button(zoom_box, text="－", width=3, command=self._handle_zoom_out)
         self._zoom_out_button.pack(side="left")
@@ -128,16 +133,19 @@ class ReaderScreen(ttk.Frame):
         self._marker_button = tools_menu
         tools_menu.add_command(label="✎  Marcar", command=self._toggle_marker_mode)
         tools_menu.add_command(label="⌫  Limpar", command=self._clear_markers)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="▣  Tela cheia", command=self._toggle_fullscreen)
         actions_box = ttk.Frame(toolbar_inner, style="Toolbar.TFrame")
-        actions_box.pack(side="right", padx=(16, 0))
+        actions_box.pack(side="right", fill="x", expand=True, padx=(32, 0))
 
+        ttk.Separator(actions_box, orient="vertical").pack(side="left", fill="y", padx=(0, 24), pady=2)
         ttk.Menubutton(actions_box, text="🛠  Ferramentas", menu=tools_menu, width=14).pack(
-            side="right", padx=(8, 0)
+            side="left", padx=(0, 32)
         )
 
         search_box = ttk.Frame(actions_box, style="Toolbar.TFrame")
-        search_box.pack(side="left")
-        self._search_entry = ttk.Entry(search_box, width=24)
+        search_box.pack(side="right")
+        self._search_entry = ttk.Entry(search_box, width=32)
         self._search_entry.pack(side="left")
         self._search_entry.bind("<Return>", lambda _event: self._handle_search())
         ttk.Button(search_box, text="🔍  Pesquisar", command=self._handle_search).pack(side="left", padx=(6, 0))
@@ -219,6 +227,10 @@ class ReaderScreen(ttk.Frame):
         self._canvas.bind("<Shift-Button-5>", self._on_shift_mousewheel)
         self._canvas.bind("<Control-Button-4>", self._on_ctrl_mousewheel)
         self._canvas.bind("<Control-Button-5>", self._on_ctrl_mousewheel)
+        self._canvas.bind("<Left>", lambda _event: self._go_previous())
+        self._canvas.bind("<Right>", lambda _event: self._go_next())
+        self._canvas.bind("<F11>", lambda _event: self._toggle_fullscreen())
+        self._canvas.bind("<Escape>", lambda _event: self._set_fullscreen(False))
         self._canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self._canvas.bind("<B1-Motion>", self._on_canvas_drag)
         self._canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
@@ -251,6 +263,8 @@ class ReaderScreen(ttk.Frame):
         self._current_page = max(0, min(page_number, self._total_pages - 1))
         self._render_current_page()
         self._page_label.config(text=f"Página {self._current_page + 1} / {self._total_pages}")
+        self._page_entry.delete(0, "end")
+        self._page_entry.insert(0, str(self._current_page + 1))
         self._progress.configure(value=self._current_page + 1)
         completion = ((self._current_page + 1) / self._total_pages * 100) if self._total_pages else 0
         self._progress_label.config(text=f"{completion:.1f}%")
@@ -390,6 +404,22 @@ class ReaderScreen(ttk.Frame):
     def _go_next(self) -> None:
         if self._current_page < self._total_pages - 1:
             self._on_page_changed(self._current_page + 1)
+
+    def _handle_goto_page(self) -> None:
+        try:
+            page_number = int(self._page_entry.get()) - 1
+        except ValueError:
+            self._page_entry.delete(0, "end")
+            self._page_entry.insert(0, str(self._current_page + 1))
+            return
+        self._on_page_changed(max(0, min(page_number, self._total_pages - 1)))
+
+    def _toggle_fullscreen(self) -> None:
+        window = self.winfo_toplevel()
+        self._set_fullscreen(not bool(window.attributes("-fullscreen")))
+
+    def _set_fullscreen(self, enabled: bool) -> None:
+        self.winfo_toplevel().attributes("-fullscreen", enabled)
 
     def _on_mousewheel(self, event) -> None:
         if getattr(event, "num", None) == 4:

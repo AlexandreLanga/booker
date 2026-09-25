@@ -9,7 +9,15 @@ CREATE TABLE IF NOT EXISTS books (
     title TEXT NOT NULL,
     file_path TEXT NOT NULL UNIQUE,
     total_pages INTEGER NOT NULL,
-    added_at TEXT NOT NULL
+    added_at TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT '',
+    publisher TEXT NOT NULL DEFAULT '',
+    isbn TEXT NOT NULL DEFAULT '',
+    publication_year INTEGER,
+    category TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    favorite INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Não iniciado'
 );
 
 CREATE TABLE IF NOT EXISTS annotations (
@@ -46,4 +54,19 @@ def create_connection(db_path: str) -> sqlite3.Connection:
     connection = sqlite3.connect(db_path)
     connection.execute("PRAGMA foreign_keys = ON")
     connection.executescript(SCHEMA)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(books)")}
+    migrations = {
+        "author": "ALTER TABLE books ADD COLUMN author TEXT NOT NULL DEFAULT ''",
+        "publisher": "ALTER TABLE books ADD COLUMN publisher TEXT NOT NULL DEFAULT ''",
+        "isbn": "ALTER TABLE books ADD COLUMN isbn TEXT NOT NULL DEFAULT ''",
+        "publication_year": "ALTER TABLE books ADD COLUMN publication_year INTEGER",
+        "category": "ALTER TABLE books ADD COLUMN category TEXT NOT NULL DEFAULT ''",
+        "tags": "ALTER TABLE books ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
+        "favorite": "ALTER TABLE books ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0",
+        "status": "ALTER TABLE books ADD COLUMN status TEXT NOT NULL DEFAULT 'Não iniciado'",
+    }
+    for column, statement in migrations.items():
+        if column not in columns:
+            connection.execute(statement)
+    connection.commit()
     return connection
