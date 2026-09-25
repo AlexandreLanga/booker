@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Callable
 import tkinter as tk
 from tkinter import ttk
 
@@ -117,10 +118,10 @@ class BookerApp:
         self._reading_service.update_progress(self._current_book_id, page_number)
         self._reader_screen.show_page(page_number)
 
-    def _handle_search(self, query: str):
+    def _handle_search(self, query: str, progress_callback: Callable[[int, int], None] | None = None):
         if self._current_document is None:
             return []
-        return self._reading_service.search(self._current_document, query)
+        return self._reading_service.search(self._current_document, query, progress_callback=progress_callback)
 
     def _handle_add_annotation(self, page_number: int, content: str) -> None:
         if self._current_book_id is None:

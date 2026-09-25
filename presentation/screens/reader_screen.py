@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import threading
 import tkinter as tk
 from dataclasses import dataclass, field
 from tkinter import messagebox, ttk
@@ -8,6 +10,8 @@ from typing import Callable
 from application.dto import AnnotationView
 from domain.value_objects import SearchResult
 from presentation.theme import CANVAS_BACKGROUND, style_listbox
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,6 +83,7 @@ class ReaderScreen(ttk.Frame):
         self._marker_button = None
         self._marker_color = "#ffeb3b"
         self._marker_alpha = 0.35
+        self._search_in_progress = False
 
         self._create_widgets()
         self._bind_events()
@@ -128,6 +133,8 @@ class ReaderScreen(ttk.Frame):
         self._search_entry.pack(side="left")
         self._search_entry.bind("<Return>", lambda _event: self._handle_search())
         ttk.Button(search_box, text="🔍  Pesquisar", command=self._handle_search).pack(side="left", padx=(6, 0))
+        self._search_progress_label = ttk.Label(search_box, text="", style="Toolbar.TLabel")
+        self._search_progress_label.pack(side="left", padx=(6, 0))
 
         body = ttk.Frame(self, style="TFrame")
         body.pack(fill="both", expand=True, padx=16, pady=16)
@@ -170,6 +177,9 @@ class ReaderScreen(ttk.Frame):
         style_listbox(self._annotations_list)
         self._annotations_list.pack(fill="both", expand=True, padx=10, pady=(10, 8))
 
+        ttk.Label(annotations_tab, text="Adicionar anotação", style="Surface.TLabel").pack(
+            anchor="w", padx=10, pady=(0, 4)
+        )
         annotation_form = ttk.Frame(annotations_tab, style="Surface.TFrame")
         annotation_form.pack(fill="x", padx=10, pady=(0, 8))
         self._annotation_entry = ttk.Entry(annotation_form)
@@ -451,8 +461,36 @@ class ReaderScreen(ttk.Frame):
 
     def _handle_search(self) -> None:
         query = self._search_entry.get().strip()
-        if query:
-            self.show_search_results(self._on_search(query))
+        if not query or self._search_in_progress:
+            return
+        self._search_in_progress = True
+        self._search_entry.configure(state="disabled")
+        threading.Thread(target=self._search_in_background, args=(query,), daemon=True).start()
+
+    def _search_in_background(self, query: str) -> None:
+        try:
+            results = self._on_search(query, self._report_search_progress)
+        except Exception as error:
+            logger.exception("Falha ao pesquisar por %r", query)
+            self.after(0, self._finish_search, None, error)
+        else:
+            self.after(0, self._finish_search, results, None)
+
+    def _finish_search(self, results: list[SearchResult] | None, error: Exception | None) -> None:
+        self._search_in_progress = False
+        self._search_entry.configure(state="normal")
+        self._search_progress_label.configure(text="")
+        if error is not None:
+            self.show_error(f"Não foi possível pesquisar: {error}")
+            return
+        self.show_search_results(results or [])
+
+    def _report_search_progress(self, current_page: int, total_pages: int) -> None:
+        self.after(0, self._show_search_progress, current_page, total_pages)
+
+    def _show_search_progress(self, current_page: int, total_pages: int) -> None:
+        if self._search_in_progress:
+            self._search_progress_label.configure(text=f"{current_page}/{total_pages}")
 
     def _handle_open_search_result(self) -> None:
         selection = self._search_results_list.curselection()

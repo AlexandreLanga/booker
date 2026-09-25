@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from pathlib import Path
 
@@ -24,6 +25,7 @@ WINDOW_ICON_PNG = WINDOW_ICON_PNG[:1575] + "2" + WINDOW_ICON_PNG[1575:]
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     connection = create_connection(DB_PATH)
 
     book_repository = SqliteBookRepository(connection)

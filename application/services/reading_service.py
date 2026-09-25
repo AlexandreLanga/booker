@@ -33,5 +33,10 @@ class ReadingService:
     def update_progress(self, book_id: int, current_page: int) -> None:
         self._progress_repository.save(ReadingProgress(book_id=book_id, current_page=current_page))
 
-    def search(self, document, query: str) -> list[SearchResult]:
-        return document.search(query)
+    def search(
+        self,
+        document,
+        query: str,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[SearchResult]:
+        return document.search(query, progress_callback=progress_callback)
