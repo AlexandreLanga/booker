@@ -120,7 +120,7 @@ class LibraryScreen(ttk.Frame):
         self._tree.heading("pages", text="PÁGINAS", anchor="center")
         self._tree.heading("progress", text="PROGRESSO", anchor="center")
         self._tree.column("title", width=320, minwidth=220, stretch=True, anchor="w")
-        self._tree.column("author", width=180, minwidth=120, stretch=True, anchor="w")
+        self._tree.column("author", width=240, minwidth=120, stretch=True, anchor="w")
         self._tree.column("category", width=150, minwidth=100, stretch=True, anchor="w")
         self._tree.column("status", width=130, minwidth=110, stretch=False, anchor="center")
         self._tree.column("favorite", width=52, minwidth=40, stretch=False, anchor="center")
