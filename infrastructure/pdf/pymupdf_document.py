@@ -22,9 +22,11 @@ class PdfDocument:
     def __init__(self, file_path: str):
         self._file_path = file_path
         self._doc = self._open_document(file_path)
+        self._search_doc = None
         self._ocr_available: bool | None = None
         self._ocr_text_cache: dict[int, str | None] = {}
         self._lock = threading.RLock()
+        self._search_lock = threading.RLock()
 
     @staticmethod
     def _open_document(file_path: str):
@@ -89,10 +91,16 @@ class PdfDocument:
         query = query.strip()
         if not query:
             return []
-        with self._lock:
-            results: list[SearchResult] = []
-            for page_number in range(self._doc.page_count):
-                page = self._doc.load_page(page_number)
+        results: list[SearchResult] = []
+        with self._search_lock:
+            if self._search_doc is None:
+                self._search_doc = self._open_document(self._file_path)
+            search_doc = self._search_doc
+            total_pages = search_doc.page_count
+
+        for page_number in range(total_pages):
+            with self._search_lock:
+                page = search_doc.load_page(page_number)
                 try:
                     text = page.get_text()
                     matches = page.search_for(query)
@@ -111,9 +119,9 @@ class PdfDocument:
                         results.append(SearchResult(page_number=page_number, snippet=snippet))
                 except Exception:
                     logger.exception("Falha ao pesquisar no PDF %s, página %s", self._file_path, page_number + 1)
-                if progress_callback is not None:
-                    progress_callback(page_number + 1, self._doc.page_count)
-            return results
+            if progress_callback is not None:
+                progress_callback(page_number + 1, total_pages)
+        return results
 
     @staticmethod
     def _extract_snippet(text: str, query: str, context: int = 40) -> str:
@@ -183,3 +191,6 @@ class PdfDocument:
     def close(self) -> None:
         with self._lock:
             self._doc.close()
+        with self._search_lock:
+            if self._search_doc is not None:
+                self._search_doc.close()
